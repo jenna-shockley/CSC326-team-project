@@ -1,0 +1,257 @@
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:include="layout :: head(title=~{::title},links=~{})">
+  <title>View Personal Representatives</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.4/angular.min.js"></script>
+</head>
+
+<body th:include="layout :: body" th:with="content=~{::content}">
+  <div th:fragment="content">
+   
+  <script th:inline="javascript">
+      /* Otherwise Thymeleaf tries to parse Javascript as XML and breaks itself sometimes.  Sigh */
+      /*<![CDATA[*/
+      var app = angular.module("personalRepsApp", []);
+      app.controller('personalRepsCtrl', function ($scope, $http) {
+        
+    	$scope.displayName = function(p) {
+			return p.firstName + " " + p.lastName + " (" + p.self.username + ")";
+		}
+    	
+    	  
+    	$scope.addFilter = "";
+    	$scope.filterAddPatients = function(patient) {
+			return ($scope.displayName(patient)).toLowerCase().match($scope.addFilter.toLowerCase());
+		} 
+    	
+    	$scope.patients = [];
+		$http.get("/iTrust2/api/v1/patients").then(
+				function(response) {
+					$scope.patients = response.data;
+					console.log("Patients:");
+					console.log($scope.patients);
+				}, function(rejection) {
+					$scope.patients = [];
+					$scope.errorMessage = "Could not get patients";	
+				});
+		
+		    $scope.personalReps = [];
+	        $scope.represents = [];
+	        $scope.loadTable = function () {
+	          $scope.errorMessage = "";
+	          $http.get("/iTrust2/api/v1/representatives/").then(
+	            function (response) {
+	              $scope.personalReps = response.data;
+	              console.log("PersonalReps:");
+	              console.log($scope.personalReps);
+	              $scope.message = "";
+	            }, function (rejection) {
+	              $scope.personalReps = [];
+	              $scope.errorMessage = "Could not display personal representatives";
+	            });
+	          $http.get("/iTrust2/api/v1/patientsrepresented/").then(
+	             function (response) {
+	              $scope.represents = response.data;
+	              console.log("Represents:");
+	              console.log($scope.represents);
+	            }, function (rejection) {
+	              $scope.represents = [];
+	              $scope.errorMessage = "Could not display who the patient represents";
+	            });
+	        }
+	        
+	        $scope.currentPatient = [];
+	        $http.get("/iTrust2/api/v1/patient/").then(
+		   	           function (response) {
+		   	              $scope.currentPatient = response.data;
+		   	           }, function (rejection) {
+		   	              $scope.newUsernamePR = [];
+		   	              $scope.errorMessage = "Could not the logged in patient";
+		   	           });
+	        
+	        
+	        $scope.newUsernamePR = [];
+	        $scope.submitUsername = function(username) {
+	        	$scope.errorMessage = "";
+	        	for(i = 0; i < $scope.personalReps.length; i++) {
+	        		if(username === $scope.personalReps[i].self.username) {
+	        			$scope.errorMessage = username + " is already your personal representative.";
+	        		}
+	        	}
+	        	if(username === $scope.currentPatient.self.username) {
+	        		$scope.errorMessage = "Cannot add yourself as a personal representative.";
+	        	} else {
+		        	$http.get("/iTrust2/api/v1/patients/" + username).then(
+		   	           function (response) {
+		   	              $scope.newUsernamePR = response.data;
+		   	              console.log("Username PR:");
+		   	              console.log($scope.newUsernamePR);
+		   	              $scope.message = "";
+		   	           }, function (rejection) {
+		   	              $scope.newUsernamePR = [];
+		   	              $scope.errorMessage = "Could not the patient with username: " + username;
+		   	           });
+	        	}
+	        }
+	        
+	        $scope.submitName = function() {
+	        	
+		        	$http({
+						method : 'PUT',
+						url : '/iTrust2/api/v1/addrep/' + $scope.newUsernamePR.firstName + '/' + $scope.newUsernamePR.lastName,
+						data : $scope.patient
+					}).then(function(response) {
+						$scope.message = "Patient's personal representative updated successfully.";
+						console.log(response);
+						
+						$scope.loadTable();
+						
+					}, function(rejection) {
+						console.log(rejection);
+						if (rejection.data.msg) {
+							$scope.errorMessage = "Error: " + rejection.data.msg;
+						} else {
+							$scope.errorMessage = "An error occured updating the personal representative.";
+						}
+					});
+			}
+	        
+	        
+	        
+	        
+			$scope.removeSelf = function(pat) {
+				$http({
+					method : 'PUT',
+					url : '/iTrust2/api/v1/removeselfasrep/' + pat,
+					data : $scope.represents
+				}).then(function(response) {
+					$scope.message = "Removed patient from being a personal representative successfully.";
+					console.log(response);
+					
+					$scope.loadTable();
+					
+				}, function(rejection) {
+					console.log(rejection);
+					if (rejection.data.msg) {
+						$scope.errorMessage = "Error: " + rejection.data.msg;
+					} else {
+						$scope.errorMessage = "An error occured updating the personal representative.";
+					}
+				});
+			}
+			
+			$scope.removeRep = function(rep) {
+				$http({
+					method : 'PUT',
+					url : '/iTrust2/api/v1/removerep/' + rep,
+					data : rep
+				}).then(function(response) {
+					$scope.message = "Removed personal representative successfully.";
+					console.log(response);
+					
+					$scope.loadTable();
+					
+				}, function(rejection) {
+					console.log(rejection);
+					if (rejection.data.msg) {
+						$scope.errorMessage = "Error: " + rejection.data.msg;
+					} else {
+						$scope.errorMessage = "An error occured removing the personal representative.";
+					}
+				});
+			}
+			
+	        $scope.loadTable();
+        
+      });
+			/*]]>*/
+    </script>
+
+    <div ng-app="personalRepsApp" ng-controller="personalRepsCtrl">
+      <div class="container">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="panel panel-primary">
+              <div class="panel-heading">
+                <h3>View Personal Representatives</h3>
+              </div>
+              <div class="panel-body">
+              
+			
+                <table class="table table-bordered">
+                  <caption>My Personal Representatives:</caption>
+                  <thead>
+                    <tr>
+                      <th>Personal Representative</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr name="personalRepTableRow" ng-repeat="r in personalReps">
+                      <td name="personalRepCell">{{$parent.displayName(r) || 'None'}}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                
+                <table class="table table-bordered">
+                  <caption>Patients I represent:</caption>
+                  <thead>
+                    <tr>
+                      <th>Patients Represented</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr name="representsTableRow" ng-repeat="p in represents">
+                      <td name="representsCell">{{$parent.displayName(p) || 'None'}}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                
+                
+                
+                <form>
+  					<div style="float:left;width:35%;height:35%;overflow-y:auto">
+					<!-- info on filtering taken from here: https://www.w3schools.com/angular/angular_filters.asp
+					and https://docs.angularjs.org/api/ng/filter/filter -->
+					<h4>Add PR by Name or MID: <input type="text" name="add" ng-model="addFilter"/></h4>
+					<!-- Info on scrolling taken from here: https://www.w3schools.com/cssref/pr_pos_overflow.asp -->
+					<!-- and here: https://stackoverflow.com/questions/9560330/how-to-hide-a-vertical-scroll-bar-when-not-needed -->
+					<ul style="overflow:auto;height=90%;">
+					<!-- Information on how labels wor from here: https://stackoverflow.com/questions/7863251/clicking-the-text-to-select-corresponding-radio-button -->
+							<li ng-repeat="patient in patients | filter:filterAddPatients"><h4><label>
+									<input type="radio" ng-model="addUsername"
+									name="patient" value="{{patient.self.username}}"
+									ng-click="submitUsername(addUsername)" />&nbsp;{{$parent.displayName(patient)}}</label>
+							</h4></li>
+					</ul>
+					<button ng-click="submitName()" name="submit" class="btn btn-success">Submit New PR</button>
+					</div>
+ 		 			<div name="success" class="text-success">
+                        {{message}}
+                    </div>
+ 		 			<div name="errorMsg" class="text-danger">
+                        {{errorMessage}}
+                    </div>
+				</form>
+				<div>
+					<h3>Remove Myself as a Personal Representative: </h3>
+ 		 			<select ng-model="selfRep">
+              			<option ng-repeat="pat in represents">{{pat.self.username}}</option>
+               		</select>
+    				<button ng-click="removeSelf(selfRep)" class="btn btn-danger" name="removeSelf">Remove Myself</button>
+    					<h3>Remove My Personal Representative: </h3>
+    					<select ng-model="removeMID">
+                			<option ng-repeat="r in personalReps">{{r.self.username}}</option>
+               			</select>
+    				<button ng-click="removeRep(removeMID)" class="btn btn-danger" name="removeRep">Remove PR</button>
+				</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

@@ -1,0 +1,244 @@
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:include="layout :: head(title=~{::title},links=~{})">
+  <title>Admin Lab Codes</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.4/angular.min.js"></script>
+</head>
+
+<body th:include="layout :: body" th:with="content=~{::content}">
+  <div th:fragment="content">
+
+
+    <script th:inline="javascript">
+      /* Otherwise Thymeleaf tries to parse Javascript as XML and breaks itself sometimes.  Sigh */
+      /*<![CDATA[*/
+      var app = angular.module("labCodesApp", []);
+      app.controller('labCodesCtrl', function ($scope, $http) {
+    	  
+    	var checkValidLabCode = function(labcode) {
+    		var err = [];
+    		if (!/^\d{5}-\d{1}$/.test(labcode.code)) {
+    			err.push("LOINC must be in the format XXXXX-X");
+    		}
+    		if (labcode.longName.length > 100) {
+    			err.push("Long name exceeds the character limit of 100");
+    		}
+    		if (labcode.component.length > 50) {
+    			err.push("Component exceeds the character limit of 50");
+    		}
+    		if (labcode.property.length > 10) {
+    			err.push("Property exceeds the character limit of 10");
+    		}
+    		if (labcode.method.length > 50) {
+    			err.push("Method exceeds the character limit of 50");
+    		}
+    		return err.join(". ");
+    	}
+
+        $scope.labcodes = [];
+        $scope.loadTable = function () {
+          $http.get("/iTrust2/api/v1/labcodes").then(
+            function (response) {
+              $scope.labcodes = response.data;
+            }, function (rejection) {
+              $scope.labcodes = [];
+              $scope.responseMessage = "Could not display lab codes";
+            });
+        }
+
+        $scope.addLabCode = function () {
+          var err = checkValidLabCode($scope.labcode);
+          if (err) {
+            $scope.responseMessage = err;
+          } else {
+            $http.post("/iTrust2/api/v1/labcodes", $scope.labcode).then(
+              function (response) {
+                $scope.loadTable();
+                $scope.labcode.code = "";
+                $scope.labcode.longName = "";
+                $scope.labcode.component = "";
+                $scope.labcode.property = "";
+                $scope.labcode.method = "";
+                $scope.responseMessage = "Successfully added lab code";
+              }, function (rejection) {
+                $scope.responseMessage = "Could not add lab code";
+              });
+          }
+
+        }
+
+        $scope.deleteLabCode = function (labcode) {
+          $http.delete('/iTrust2/api/v1/labcodes/' + labcode.id).then(
+            function (response) {
+              $scope.loadTable();
+              $scope.responseMessage = "Successfully removed lab code";
+            }, function (rejection) {
+              $scope.responseMessage = "Could not remove lab code";
+            })
+        }
+
+        // gets the template to ng-include for a table row / item
+        $scope.selectedLabCode = {};
+
+        $scope.getTemplate = function (labcode) {
+          if (labcode.id === $scope.selectedLabCode.id) return 'edit';
+          else return 'view';
+        };
+
+        $scope.editLabCode = function (labcode) {
+          $scope.selectedLabCode = angular.copy(labcode);
+        };
+        $scope.saveLabCode = function () {
+       	  var err = checkValidLabCode($scope.selectedLabCode);
+          if (err) {
+            $scope.responseMessage = err;
+          } else {
+            $http.put("/iTrust2/api/v1/labcodes", $scope.selectedLabCode).then(
+              function (response) {
+                $scope.loadTable();
+                $scope.resetSelected();
+                $scope.responseMessage = "Successfully edited lab code";
+              }, function (rejection) {
+                $scope.responseMessage = "Failed to edit lab code";
+              });
+          }
+        };
+
+        $scope.resetSelected = function () {
+          $scope.selectedLabCode = {};
+        };
+
+        // load table initially
+        $scope.loadTable();
+      });
+			/*]]>*/
+    </script>
+
+
+
+    <div ng-app="labCodesApp" ng-controller="labCodesCtrl">
+      <div class="container">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="panel panel-primary">
+              <div class="panel-heading">
+                <h3>Admin Manage Lab Codes</h3>
+              </div>
+              <div class="panel-body">
+                <table class="table table-bordered">
+                  <caption>Existing Lab Codes:</caption>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>LOINC</th>
+                      <th>Component</th>
+                      <th>Property</th>
+                      <th>Method</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr name="labCodeTableRow" ng-repeat="l in labcodes | orderBy: 'longName'" ng-include="getTemplate(l)" labCodeId={{l.id}}>
+                    </tr>
+                  </tbody>
+                </table>
+                <!-- table in view mode -->
+                <script type="text/ng-template" id="view">
+                  <td name="nameCell">{{l.longName}}</td>
+                  <td name="codeCell">{{l.code}}</td>
+                  <td name="componentCell">{{l.component}}</td>
+                  <td name="propertyCell">{{l.property}}</td>
+                  <td name="methodCell">{{l.method}}</td>
+                  <td>
+                    <div class="row text-center">
+                      <div class="col-md-6">
+                        <input type="button" value="Edit" class="btn btn-primary" name="editLabCode" ng-click="editLabCode(l)" />                         
+                      </div>
+                      <div class="col-md-6">
+                          <input type="button" value="Delete" class="btn btn-danger" name="deleteLabCode" ng-click="deleteLabCode(l)" />                          
+                      </div>
+                    </div>
+                  </td>
+                </script>
+
+                <!-- table in edit mode -->
+                <script type="text/ng-template" id="edit">
+                  <td name="editNameCell">
+                    <input type="text" class="form-control" ng-model="selectedLabCode.longName" />
+                  </td>
+                  <td name="editCodeCell">
+                    <input type="text" class="form-control" ng-model="selectedLabCode.code" />
+                  </td>
+                  <td name="editComponentCell">
+                    <input type="text" class="form-control" ng-model="selectedLabCode.component" />
+                  </td>
+                  <td name="editPropertyCell">
+                    <input type="text" class="form-control" ng-model="selectedLabCode.property" />
+                  </td>
+                  <td name="editMethodCell">
+                    <input type="text" class="form-control" ng-model="selectedLabCode.method" />
+                  </td>
+                  <td>
+                    <div class="row text-center">
+                      <div class="col-md-6">
+                          <input type="button" value="Save" class="btn btn-success" name="saveLabCode" ng-click="saveLabCode()" />                          
+                      </div>
+                      <div class="col-md-6">
+                          <input type="button" value="Cancel" class="btn btn-danger" name="cancelEdit" ng-click="resetSelected()" />                            
+                      </div>
+                    </div>
+                  </td>
+                </script>
+
+                <br>
+                <div class="row">
+                  <div class="col-md-12">
+                    <div class="panel panel-default">
+                      <div class="panel-heading ">Add a Lab Code</div>
+                      <div class="panel-body">
+                        <form class="form-horizontal" role="form" name="addLabCodeForm" ng-submit="addLabCode(addLabCodeForm.$valid)">
+                          <div class="row">
+                            <div class="col-md-4">
+                              <label>Name</label>
+                              <input type="text" class="form-control" name="name" ng-model="labcode.longName" required/>
+                            </div>
+                            <div class="col-md-4">
+                              <label>Code</label>
+                              <input type="text" class="form-control" placeholder="xxxxx-x" name="code" ng-model="labcode.code" required />
+                            </div>
+                            <div class="col-md-4">
+                              <label>Component</label>
+                              <input type="text" class="form-control" name="component" ng-model="labcode.component" required />
+                            </div>
+                            <div class="col-md-4">
+                              <label>Property</label>
+                              <input type="text" class="form-control" name="property" ng-model="labcode.property" required />
+                            </div>
+                            <div class="col-md-4">
+                              <label>Method</label>
+                              <input type="text" class="form-control" name="method" ng-model="labcode.method" required />
+                            </div>
+                          </div>
+                          <div class="row">
+                            <div class="col-md-12 text-right">
+                              <button type="submit" class="btn btn-success" name="submitLabCode">Submit</button>
+                            </div>
+                          </div>
+                        </form>
+                        <div>
+                          <p style="color:red" name="responseMessage" ng-model="responseMessage" id="errP">{{responseMessage}}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+</body>
+
+</html>
+
+<!-- still here? -->

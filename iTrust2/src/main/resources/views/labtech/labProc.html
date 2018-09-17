@@ -1,0 +1,291 @@
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:include="layout :: head(title=~{::title},links=~{})">
+  <title>Lab Tech Lab Procedures</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.4/angular.min.js"></script>
+</head>
+
+<body th:include="layout :: body" th:with="content=~{::content}">
+  <div th:fragment="content">
+
+
+    <script th:inline="javascript">
+      /* Otherwise Thymeleaf tries to parse Javascript as XML and breaks itself sometimes.  Sigh */
+      /*<![CDATA[*/
+      var app = angular.module("labProcApp", []);
+      app.controller('labProcCtrl', function ($scope, $http) {
+    	  
+    	var checkValidLabProc = function(labProc) {
+    		var err = [];
+    		
+    		if (!(labProc.status === "Completed")) {
+    			$scope.selectedLabProc.comments = $scope.originalComments;
+    			$scope.errorMsg = "Comments cannot be edited until completed";
+    		}
+    		else {
+    			$scope.errorMsg = "";
+    		}
+    		return err.join(". ");
+    	}
+
+        $scope.labProcs = [];
+        $scope.loadTable = function () {
+          $http.get("/iTrust2/api/v1/labProcs").then(
+            function (response) {
+              $scope.labProcs = response.data;
+              $scope.message = "";
+            }, function (rejection) {
+              $scope.labProcs = [];
+              $scope.message = "Could not display Lab Procedures";
+            });
+        }
+
+
+        // gets the template to ng-include for a table row / item
+        $scope.selectedLabProc = {};
+		$scope.originalComments = {};
+        
+        $scope.getTemplate = function (labProc) {       	
+          if (labProc.id === $scope.selectedLabProc.id) return 'edit';
+          else return 'view';
+        };
+
+        
+        $scope.getDate = function getDate(date) {
+        	month = date.month + 1;
+        	return twoDigit(month) + "/" + twoDigit(date.dayOfMonth) + "/" + date.year;
+        }
+        
+        function twoDigit(num) {
+            if (num < 10) {
+              return "0" + num;
+            }
+            return num;
+          }
+        
+        
+        $scope.editLabProc = function (labProc) {
+        	
+          // Adjust statuses as needed
+          if ( labProc.status === "NotStarted" ) {
+            $scope.statuses = ["Not Started", "In Progress", "Completed"];
+          }
+          else if ( labProc.status === "InProgress" ) {
+              $scope.statuses = ["In Progress", "Completed"];
+          }
+          else if ( labProc.status === "Completed" ) {
+              $scope.statuses = ["Completed"];
+          }
+          
+          console.log("LabProc:");
+          console.log(labProc);
+          $scope.originalComments = labProc.comments;
+          $scope.selectedLabProc = angular.copy(labProc);
+          $scope.selectedLabProc.code = labProc.code.code;
+          $scope.selectedLabProc.labtech = labProc.labtech.username;
+          $scope.selectedLabProc.patient = labProc.patient.username;
+          $scope.selectedLabProc.date = $scope.getDate(labProc.date);
+          
+          if ( labProc.priority === "VeryHigh" ) {
+        	  $scope.selectedLabProc.priority = 1;
+            }
+            else if ( labProc.priority === "High" ) {
+              $scope.selectedLabProc.priority = 2;
+            }
+            else if ( labProc.priority === "Medium" ) {
+              $scope.selectedLabProc.priority = 3;
+            }
+            else if ( labProc.priority === "Low" ) {
+              $scope.selectedLabProc.priority = 4;
+            }
+        };
+        $scope.saveLabProc = function () {
+       	  var err = checkValidLabProc($scope.selectedLabProc);
+           console.log("SelectedLabProc in Save:");
+           console.log($scope.selectedLabProc);
+       	  if (err) {
+            $scope.errorAdding = err;
+          } else {
+            $http.put("/iTrust2/api/v1/labProcs", $scope.selectedLabProc).then(
+              function (response) {
+                $scope.loadTable();
+                $scope.resetSelected();
+              }, function (rejection) {
+                $scope.errorAdding = "Failed to edit Lab Procedure";
+              });
+          }
+        };
+
+        $scope.assignedLabProc = {};
+        $scope.labTechs = [];
+        $scope.showAssign = false;
+        $scope.assignLabProc = function(labProc) {
+        	$scope.showAssign = true;
+        	$scope.assignedLabProc = angular.copy(labProc);
+        	 $http.get("/iTrust2/api/v1/labtechs").then(
+        	   function (response) {
+        	     $scope.labTechs = response.data;
+        	     $scope.message = "";
+        	   }, function (rejection) {
+        	     $scope.labTechs = [];
+        	     $scope.message = "Could not get lab techs.";
+        	   });
+        	 
+        	 $scope.assignedLabProc.code = labProc.code.code;
+             $scope.assignedLabProc.patient = labProc.patient.username;
+             $scope.assignedLabProc.date = $scope.getDate(labProc.date);
+             
+             if ( labProc.status === "NotStarted" ) {
+             	$scope.assignedLabProc.status = "Not Started";
+             }	
+             else if ( labProc.status === "InProgress" ) {
+             	$scope.assignedLabProc.status = "In Progress";
+             }
+             else if ( labProc.status === "Completed" ) {
+              	$scope.assignedLabProc.status = "Completed";
+             }
+                   
+             if ( labProc.priority === "VeryHigh" ) {
+           	  $scope.assignedLabProc.priority = 1;
+             }
+             else if ( labProc.priority === "High" ) {
+               $scope.assignedLabProc.priority = 2;
+             }
+             else if ( labProc.priority === "Medium" ) {
+               $scope.assignedLabProc.priority = 3;
+             }
+             else if ( labProc.priority === "Low" ) {
+               $scope.assignedLabProc.priority = 4;
+             } 
+        };
+        
+        $scope.saveAssignment = function(username) {
+        	$scope.assignedLabProc.labtech = username;
+        	console.log("Assigned Labtech in Save:");
+        	console.log($scope.assignedLabProc.labtech);
+        	$http.put("/iTrust2/api/v1/labProcs", $scope.assignedLabProc).then(
+                function (response) {
+                  $scope.loadTable();
+                  $scope.resetSelected();
+                }, function (rejection) {
+                    $scope.errorAdding = "Failed to assign Lab Procedure";
+                });
+        	 $scope.showAssign = false;
+        }
+        
+        $scope.statuses = ["Not Started", "In Progress", "Completed"];
+        
+        $scope.resetSelected = function () {
+          $scope.selectedLabProc = {};
+          $scope.assignedLabProc = {};
+          $scope.showAssign = false;
+        };
+
+        // load table initially
+        $scope.loadTable();
+      });
+			/*]]>*/
+    </script>
+
+
+
+    <div ng-app="labProcApp" ng-controller="labProcCtrl">
+      <div class="container">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="panel panel-primary">
+              <div class="panel-heading">
+                <h3>Assigned Lab Procedures</h3>
+              </div>
+              <div class="panel-body">
+                <table class="table table-bordered">
+                  <caption>Existing Lab Procedures:</caption>
+                  <thead>
+                    <tr>
+                      <th>Lab Code</th>
+                      <th>Priority</th>
+                      <th>Date</th>
+                      <th>Comments</th>
+                      <th>Status</th>
+                      <th>Patient</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr name="labProcTableRow" ng-repeat="l in labProcs | orderBy: 'id'" ng-include="getTemplate(l)" labProcId={{l.id}}>
+                    </tr>
+                  </tbody>
+                </table>
+                <!-- table in view mode -->
+                <script type="text/ng-template" id="view">
+                  <td name="codeCell">{{l.code.code}}</td>
+				  <td name="priorityCell">{{l.priority}}</td>
+                  <td name="dateCell">{{l.date.month + 1}}/{{l.date.dayOfMonth}}/{{l.date.year}}</td>
+				  <td name="commentsCell">{{l.comments}}</td>
+			      <td name="statusCell">{{l.status}}</td>
+				  <td name="patientCell">{{l.patient.username}}</td>
+                  <td>
+                    <div class="row text-center">
+                      <div class="col-md-6">
+                        <input type="button" value="Edit" class="btn btn-primary" name="editLabProc" ng-click="editLabProc(l)" />                         
+                      </div>
+					  <div class="col-md-6">
+                        <input type="button" value="Assign" class="btn btn-primary" name="assignLabProc" ng-click="assignLabProc(l)" />                         
+                      </div>
+                    </div>
+                  </td>
+                </script>
+
+                <!-- table in edit mode -->
+                <script type="text/ng-template" id="edit">
+				  <td name="codeCell">{{l.code.code}}</td>
+                  <td name="priorityCell">{{l.priority}}</td>
+                  <td name="dateCell">{{l.date.month + 1}}/{{l.date.dayOfMonth}}/{{l.date.year}}</td>
+				  <td name="editCommentCell">
+                    <input type="text" class="form-control" ng-model="selectedLabProc.comments" />
+                  </td>
+				  <td name="editStatusCell">
+                    <select class="form-control" ng-model="selectedLabProc.status">
+						<option ng-repeat="s in statuses" value="{{s}}">{{s}}</option>
+					</select>
+                  </td>
+                  <td name="patientCell">{{l.patient.username}}</td>
+                  <td>
+                    <div class="row text-center">
+                      <div class="col-md-6">
+                          <input type="button" value="Save" class="btn btn-success" name="saveLabProc" ng-click="saveLabProc()" />                          
+                      </div>
+                      <div class="col-md-6">
+                          <input type="button" value="Cancel" class="btn btn-danger" name="cancelEdit" ng-click="resetSelected()" />                            
+                      </div>
+                    </div>
+                  </td>
+                </script>
+                
+                <div ng-show="showAssign">
+                <label>Select Lab Tech:</label>
+                <select ng-model="username">
+                	<option ng-repeat="l in labTechs">{{l.split(" ")[0]}}</option>
+                </select>
+                    <input type="button" value="Save Assignment" class="btn btn-success" name="saveAssignemnt" ng-click="saveAssignment(username)" />
+                    <input type="button" value="Cancel" class="btn btn-danger" name="cancelAssign" ng-click="resetSelected()" /> 
+                </div>
+              </div>
+              
+               <div class="col-md-12 text-right">
+                   <div>
+                      <div name="success" class="text-success">
+                        {{message}}
+                      </div>
+                      <div name="errorMsg" class="text-danger">
+                        {{errorMsg}}
+                      </div>
+               </div>
+                      
+            </div>
+          </div>
+        </div>
+</body>
+
+</html>

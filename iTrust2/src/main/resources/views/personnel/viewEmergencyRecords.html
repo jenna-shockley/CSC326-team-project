@@ -1,0 +1,298 @@
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:include="layout :: head(title=~{::title},links=~{})">
+  <title>View Emergency Health Records</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.4/angular.min.js"></script>
+</head>
+
+<body th:include="layout :: body" th:with="content=~{::content}">
+  <div th:fragment="content">
+   
+  <script th:inline="javascript">
+      /* Otherwise Thymeleaf tries to parse Javascript as XML and breaks itself sometimes.  Sigh */
+      /*<![CDATA[*/
+      var app = angular.module("emergencyRecordsApp", []);
+      app.controller('emergencyRecordsCtrl', function ($scope, $http) {
+        
+    	// Helper method to create 2-digit version of a value -- from documentOfficeVisit.html
+		function twoDigit(num) {
+			if (num < 10) {
+				return "0" + num;
+			}
+			return num;
+		}
+    	
+    	// Format a date from given json
+	    $scope.getDate = function getDate(date) {
+			/* The months start at 0... only the months.  So we have to add 1 to get the correct input.*/
+			month = date.month + 1;	
+			return twoDigit(month) + "/" + twoDigit(date.dayOfMonth) + "/" + date.year;
+		}
+    	
+    	$scope.displayName = function(p) {
+			return p.firstName + " " + p.lastName + " (" + p.self.username + ")";
+		}
+			
+		// documentation on Angular filters: https://docs.angularjs.org/api/ng/filter/filter
+		$scope.searchFilter = "";
+		$scope.filterPatients = function(patient) {
+			return ($scope.displayName(patient)).toLowerCase().match($scope.searchFilter.toLowerCase());
+		}  
+		
+		
+		$http.get("/iTrust2/api/v1/patients").then(
+				function(response) {
+					$scope.patients = response.data;
+					console.log("Patients:");
+					console.log($scope.patients);
+				}, function(rejection) {
+					$scope.patients = [];
+					$scope.message = "Could not get patients";	
+				});
+    	  
+		
+
+		  $scope.name = null;
+		  $scope.age = null;
+		  $scope.dateOfBirth = null;
+		  $scope.gender = null;
+		  $scope.bloodType = null;
+          $scope.prescriptions = [];
+          $scope.diagnoses = [];
+          $scope.submit = function(patient) {
+          	$http.get("/iTrust2/api/v1/records/name/" + patient).then(
+          		function(response) {
+  			    $scope.name = response.data;
+  				$scope.message = "";
+  				console.log(response);
+  				console.log(name);
+  				
+  				
+  			}, function(rejection) {
+  				console.log(rejection);
+  				if (rejection.data.msg) {
+  					$scope.message = "Error: " + rejection.data.msg;
+  				} else {
+  					$scope.message = "An error occured getting the name for the patient.";
+  				}
+  			})
+  			
+  			$http.get("/iTrust2/api/v1/records/age/" + patient).then(
+          		function(response) {
+  			    $scope.age = response.data;
+  				$scope.message = "";
+  				console.log(response);
+  				
+  				
+  			}, function(rejection) {
+  				console.log(rejection);
+  				if (rejection.data.msg) {
+  					$scope.message = "Error: " + rejection.data.msg;
+  				} else {
+  					$scope.message = "An error occured getting the age for the patient.";
+  				}
+  			})
+  			
+  			$http.get("/iTrust2/api/v1/records/birth/" + patient).then(
+          		function(response) {
+  			    $scope.dateOfBirth = response.data;
+  				$scope.message = "";
+  				console.log(response);
+  				
+  				
+  			}, function(rejection) {
+  				console.log(rejection);
+  				if (rejection.data.msg) {
+  					$scope.message = "Error: " + rejection.data.msg;
+  				} else {
+  					$scope.message = "An error occured getting the date of birth for the patient.";
+  				}
+  			})
+  			
+  			$http.get("/iTrust2/api/v1/records/gender/" + patient).then(
+          		function(response) {
+  			    $scope.gender = response.data;
+  				$scope.message = "";
+  				console.log(response);
+  				
+  				
+  			}, function(rejection) {
+  				console.log(rejection);
+  				if (rejection.data.msg) {
+  					$scope.message = "Error: " + rejection.data.msg;
+  				} else {
+  					$scope.message = "An error occured getting the gender for the patient.";
+  				}
+  			})
+  			
+  			$http.get("/iTrust2/api/v1/records/blood/" + patient).then(
+          		function(response) {
+  			    $scope.bloodType = response.data;
+  				$scope.message = "";
+  				console.log(response);
+  				
+  				
+  			}, function(rejection) {
+  				console.log(rejection);
+  				if (rejection.data.msg) {
+  					$scope.message = "Error: " + rejection.data.msg;
+  				} else {
+  					$scope.message = "An error occured getting the blood type for the patient.";
+  				}
+  			})
+  			
+  			$http.get("/iTrust2/api/v1/records/prescriptions/" + patient).then(
+          		function(response) {
+  			    $scope.prescriptions = response.data;
+  				$scope.message = "";
+  				console.log(response);
+  				
+  				
+  			}, function(rejection) {
+  				console.log(rejection);
+  				if (rejection.data.msg) {
+  					$scope.message = "Error: " + rejection.data.msg;
+  				} else {
+  					$scope.message = "An error occured getting prescriptions for the patient.";
+  				}
+  			})
+  			
+  			$http.get("/iTrust2/api/v1/records/diagnoses/" + patient).then(
+          		function(response) {
+  			    $scope.diagnoses = response.data;
+  				$scope.message = "";
+  				console.log(response);
+  				
+  				
+  			}, function(rejection) {
+  				console.log(rejection);
+  				if (rejection.data.msg) {
+  					$scope.message = "Error: " + rejection.data.msg;
+  				} else {
+  					$scope.message = "An error occured getting diagnoses for the patient.";
+  				}
+  			})
+  		}
+          
+      });
+      /*<tr name="diagnosesTableRow">
+      <th>Diagnoses</th>
+      <td name="diagnosesCell" ng-repeat="d in diagnoses">{{$scope.record.diagnoses}}</td>
+    </tr>
+    <tr name="prescriptionsTableRow">
+      <th>Prescriptions</th>
+      <td name="prescriptionsCell" ng-repeat="p in prescriptions">{{$scope.record.prescriptions}}</td>
+    </tr>*/
+
+    </script>
+
+    <div ng-app="emergencyRecordsApp" ng-controller="emergencyRecordsCtrl">
+      <div class="container">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="panel panel-primary">
+              <div class="panel-heading">
+                <h3>View Emergency Health Records</h3>
+              </div>
+              <div class="panel-body">
+              
+              
+              <div style="float:left;width:100%;height:30%;overflow-y:auto">
+			  <!-- info on filtering taken from here: https://www.w3schools.com/angular/angular_filters.asp
+				and https://docs.angularjs.org/api/ng/filter/filter -->
+			  <h4>Search For Patients By Name or MID: <input type="text" name="search" ng-model="searchFilter"/></h4>
+			  <!-- Info on scrolling taken from here: https://www.w3schools.com/cssref/pr_pos_overflow.asp -->
+			  <!-- and here: https://stackoverflow.com/questions/9560330/how-to-hide-a-vertical-scroll-bar-when-not-needed -->
+			    <ul style="overflow:auto;height=90%;">
+			    <!-- Information on how labels work from here: https://stackoverflow.com/questions/7863251/clicking-the-text-to-select-corresponding-radio-button -->
+					<li ng-repeat="patient in patients | filter:filterPatients"><h4><label>
+							<input type="radio" ng-model="$parent.selectedPatient"
+							name="patient" value="{{patient.self.username}}"
+							ng-click='submit(patient.self.username)' />&nbsp;{{$parent.displayName(patient)}}</label>
+					</h4></li>
+				</ul>
+			  </div>
+			
+                <table class="table table-bordered">
+                  <h3>Selected Patient's Emergency Health Record:</h3>
+                  <tbody>
+                    <tr name="nameTableRow">
+                      <th>Name</th>
+                      <td name="nameCell">{{name}}</td>
+                    </tr>
+                    <tr name="ageTableRow">
+                      <th>Age</th>
+                      <td name="ageCell">{{age}}</td>
+                    </tr>
+                    <tr name="birthTableRow">
+                      <th>Date of Birth</th>
+                      <td name="dateOfBirthCell">{{dateOfBirth}}</td>
+                    </tr>
+                    <tr name="genderTableRow">
+                      <th>Gender</th>
+                      <td name="genderCell">{{gender}}</td>
+                    </tr>
+                    <tr name="bloodTableRow">
+                      <th>Blood Type</th>
+                      <td name="bloodTypeCell">{{bloodType}}</td>
+                    </tr>
+                    
+                    
+                  </tbody>
+                </table>
+                
+                <table style="width:100%" class="table table-hover">
+                  <caption>Prescriptions: </caption>
+                  <thead>
+                    <tr>
+                      <th>Drug</th>
+                      <th>Dosage (mg)</th>
+                      <th>Start Date</th>
+                      <th>End Date</th>
+                      <th>Renewals</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr name="prescriptionTableRow" ng-repeat="p in prescriptions | orderBy: 'drug'" prescriptionId={{p.id}}>
+                      <td name="drugCell">{{p.drug.name}}</td>
+                      <td name="codeCell">{{p.dosage}}</td>
+                      <td name="startCell">{{p.startDate.month + 1}}/{{p.startDate.dayOfMonth}}/{{p.startDate.year}}</td>
+                      <td name="endCell">{{p.endDate.month + 1}}/{{p.endDate.dayOfMonth}}/{{p.endDate.year}}</td>
+                      <td name="renewalsCell">{{p.renewals}}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                
+                <caption>Diagnoses:</caption>
+				<table style="width:100%" class="table table-hover">
+					<thead>
+						<tr>
+							<th>Date</th>
+							<th>HCP</th>
+							<th>ICD-10 Code</th>
+							<th>Description</th>
+							<th>Notes</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr ng-repeat="d in diagnoses" name="diagnosis">
+							<td name="date">{{getDate(d.visit.date)}}</td>
+							<td name="hcp">{{d.visit.hcp.username}}</td>
+							<td name="code">{{d.code.code}}</td>
+							<td name="description">{{d.code.description}}</td>
+							<td name="note">{{d.note}}</td>
+						</tr>
+					</tbody>			
+				</table>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>
